@@ -1,0 +1,12 @@
+[
+  {
+    "mutation": "|| → &&",
+    "snippet": "if (!rec || !rec.meta) continue;",
+    "reason": "EQUIVALENT: every record fall-remember stores carries meta (set at store time) and records() only returns stored records, so !rec and !rec.meta are both always false — `false || false` and `false && false` agree (never skip). The guard is belt-and-suspenders on a condition the pipeline cannot produce."
+  },
+  {
+    "mutation": "&& → ||",
+    "snippet": "for (const c of (cube.corners || [])) { if (out.length >= kk) break; if (c && c.meta && c.",
+    "reason": "EQUIVALENT (the c && c.meta guard): every corner fall-remember returns is a stored record with meta, and retrieve never returns the query itself as a corner, so `c && c.meta` is always true for a real corner — the && vs || distinction is unobservable on any input the pipeline produces (verified: kin never includes self, never crashes on a meta-less corner)."
+  }
+]

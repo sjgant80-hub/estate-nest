@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>THE ESTATE, NESTED — a pile becomes a body you can walk</title>
+<meta name="description" content="The ~1000-repo estate poured into the dodeca memory: signed by content, placed by golden angle into 12 chambers, wired by typed edges. Answer 'what do I have' by walking the structure. Runs in your browser." />
+<meta name="theme-color" content="#080a0e" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<style>
+  :root{--bg:#080a0e;--panel:#11151b;--panel2:#151b22;--ink:#e9eef4;--muted:#828d9a;--line:#212a34;
+    --gold:#e8b24a;--teal:#37d0b6;--violet:#a488f5;--red:#ff5c50;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;--sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif}
+  :root[data-theme=light]{--bg:#f3f1ea;--panel:#fff;--panel2:#faf7f0;--ink:#16191d;--muted:#5b6572;--line:#e3ddce}
+  @media(prefers-color-scheme:light){:root:not([data-theme=dark]){--bg:#f3f1ea;--panel:#fff;--panel2:#faf7f0;--ink:#16191d;--muted:#5b6572;--line:#e3ddce}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  h1,h2{line-height:1.12;text-wrap:balance;margin:0}
+  a{color:var(--teal)}
+  header{padding:52px 0 18px;position:relative}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.26em;text-transform:uppercase;color:var(--teal);margin:0 0 14px}
+  h1{font-size:clamp(30px,6vw,54px);font-weight:800;letter-spacing:-.03em}
+  h1 em{font-style:normal;color:var(--teal)}
+  .lede{font-size:clamp(15px,2.1vw,19px);color:var(--muted);max-width:64ch;margin:16px 0 0}
+  .lede b{color:var(--ink);font-weight:600}
+  .stage{position:relative;margin:22px 0 0}
+  canvas{width:100%;height:520px;display:block;border:1px solid var(--line);border-radius:16px;background:radial-gradient(ellipse at center,var(--panel2),var(--bg));cursor:crosshair}
+  .readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:18px}
+  .cell{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:13px 15px}
+  .cell .n{font-family:var(--mono);font-size:clamp(20px,3.6vw,27px);font-weight:700;color:var(--teal);line-height:1.05}
+  .cell .k{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:6px}
+  section{padding:32px 0;border-top:1px solid var(--line);margin-top:28px}
+  .kick{font-family:var(--mono);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin:0 0 10px}
+  h2{font-size:clamp(20px,3.4vw,27px);font-weight:750;letter-spacing:-.02em}
+  h2+p{color:var(--muted);max-width:66ch;margin:11px 0 0}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px}
+  input[type=text]{font:inherit;font-family:var(--mono);background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:11px 14px;flex:1;min-width:220px}
+  .walk{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:0;margin-top:16px;overflow:hidden;display:none}
+  .walk.open{display:block}
+  .walk .head{padding:15px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+  .walk .head .nm{font-size:18px;font-weight:700}
+  .walk .head .sig{font-family:var(--mono);font-size:12px;color:var(--gold)}
+  .walk .body{padding:6px 18px 16px}
+  .walk .line{padding:10px 0;border-bottom:1px solid var(--line);font-size:14px;display:flex;gap:12px;flex-wrap:wrap}
+  .walk .line:last-child{border-bottom:none}
+  .walk .lk{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);min-width:110px}
+  .chip{display:inline-block;border:1px solid var(--line);border-radius:7px;padding:3px 9px;margin:2px 4px 2px 0;font-size:13px;cursor:pointer;background:var(--panel2)}
+  .chip:hover{border-color:var(--teal);color:var(--teal)}
+  .dups{display:grid;gap:8px;margin-top:16px}
+  .dup{border:1px solid var(--line);border-radius:10px;background:var(--panel);padding:11px 14px;font-size:14px}
+  .dup b{color:var(--red)} .dup .rp{color:var(--muted);font-family:var(--mono);font-size:12px}
+  code{font-family:var(--mono);background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:.1em .4em;font-size:.88em}
+  footer{padding:30px 0 60px;color:var(--muted);font-size:14px}
+  .sig-l{font-family:var(--mono);color:var(--teal);opacity:.7;margin-top:12px}
+  .themebtn{position:absolute;top:14px;right:16px;padding:6px 11px;font-size:12px;font-family:var(--mono);border:1px solid var(--line);background:var(--panel2);color:var(--ink);border-radius:9px;cursor:pointer}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <button class="themebtn" id="theme">◐ theme</button>
+  <p class="eyebrow">The Estate, Nested · the pile becomes a body</p>
+  <h1>Stop squinting at a pile.<br><em>Walk</em> the structure.</h1>
+  <p class="lede">The dodeca memory was built and run <b>beside</b> a flat estate. This runs the whole
+  estate <b>through</b> it: every repo <b>signed by what it does</b>, <b>placed by golden angle</b> into
+  one of 12 chambers, <b>wired by typed edges</b>. Same thousand repos — flat pile → nested body.
+  "What do I have" becomes a graph traversal. It all runs in your browser.</p>
+</div></header>
+
+<div class="wrap">
+  <div class="stage"><canvas id="c" width="1400" height="1040" aria-label="the estate placed into 12 dodeca chambers"></canvas></div>
+  <div class="readout">
+    <div class="cell"><div class="n" id="s-total">—</div><div class="k">repos · placed</div></div>
+    <div class="cell"><div class="n" id="s-chambers">12</div><div class="k">dodeca chambers</div></div>
+    <div class="cell"><div class="n" id="s-edges">—</div><div class="k">typed edges</div></div>
+    <div class="cell"><div class="n" id="s-dups">—</div><div class="k">duplicate clusters</div></div>
+  </div>
+</div>
+
+<section id="walk-sec"><div class="wrap">
+  <p class="kick">Traverse — the payoff</p>
+  <h2>Walk it to know it. Type a repo.</h2>
+  <p>Type any repo name (try <code>fall-remember</code>, <code>the-toll</code>, <code>attractor</code>,
+  <code>offramp-v2</code>) — see its signature, its chamber, what uses it, and its kin (nearest by what
+  it does). Click any chip to walk onward.</p>
+  <div class="row"><input type="text" id="q" placeholder="repo name…" autocomplete="off"></div>
+  <div class="walk" id="walk"></div>
+</div></section>
+
+<section id="dup-sec"><div class="wrap">
+  <p class="kick">Duplicates — revealed by nesting</p>
+  <h2>The same thing, built more than once.</h2>
+  <p>Two repos that <em>do</em> the same thing get the same signature — so the moment you nest, duplication
+  becomes visible. This is the flat pile's hidden cost, made legible.</p>
+  <div class="dups" id="dups"></div>
+</div></section>
+
+<footer><div class="wrap">
+  <p>The whole nest runs client-side on <code>kernel/nest.mjs</code> — sign (sha256 content id), place
+  (fall-remember's real dodeca routing), wire (kin by cosine + a curated core of explicit deps), traverse.
+  Proof-of-play 41/44 killed +3 reviewed-equivalents, fuzz never-throws — CLEAN. Explicit <em>uses/extends</em>
+  edges are a curated core (the organs I've wired); everything else is kin — edges are ongoing gardening.
+  Re-runnable: improve the signature extraction, re-nest, lose nothing.</p>
+  <p class="sig-l">◊ · κ = 1 ⇄ φ⁴ · the organ was always waiting — now the estate lives inside it</p>
+</div></footer>
+
+<script type="module">
+import { nest, kinOf, whatUses, chamberOf, inChamber, kinEdges, foldSign } from './kernel/nest.mjs';
+const $=id=>document.getElementById(id);
+const root=document.documentElement;
+$('theme').onclick=()=>{const d=getComputedStyle(root).getPropertyValue('--bg').trim().startsWith('#0');root.setAttribute('data-theme',d?'light':'dark');draw();};
+
+let est=null, N=null, deps=[], pos=[], chamberColors=[];
+Promise.all([fetch('./estate.json').then(r=>r.json()), fetch('./deps.json').then(r=>r.json()).catch(()=>[])]).then(([e,d])=>{
+  est=e; deps=Array.isArray(d)?d:[];
+  N=nest(est.nodes);
+  // golden-angle positions for the whole field, colored by chamber
+  const PHI=(1+Math.sqrt(5))/2, GA=2*Math.PI*(1-1/PHI);
+  pos=N.placed.map((_,i)=>{const th=i*GA,r=Math.sqrt(i+1);return [r*Math.cos(th),r*Math.sin(th)];});
+  chamberColors=Array.from({length:12},(_,i)=>`hsl(${Math.round(i*137.5)%360} 62% 60%)`);
+  render();
+});
+
+function render(){
+  $('s-total').textContent=N.size.toLocaleString();
+  $('s-dups').textContent=N.duplicates.length;
+  const kin=kinEdges(N,1);
+  $('s-edges').textContent=(kin.length+deps.length).toLocaleString();
+  // duplicates, biggest first
+  const dups=[...N.duplicates].sort((a,b)=>b.repos.length-a.repos.length).slice(0,8);
+  $('dups').innerHTML=dups.map(d=>`<div class="dup"><b>×${d.repos.length}</b> <span class="mono" style="color:var(--gold)">[${d.sig}]</span> <span class="rp">${d.repos.slice(0,7).join(', ')}${d.repos.length>7?' … +'+(d.repos.length-7):''}</span></div>`).join('')||'<p class="mono" style="color:var(--muted)">no exact duplicates</p>';
+  draw();
+}
+
+$('q').addEventListener('input',()=>walk($('q').value.trim()));
+function walk(name){
+  const w=$('walk');
+  if(!name){w.classList.remove('open');return;}
+  const rec=N.placed.find(p=>p.name.toLowerCase()===name.toLowerCase());
+  if(!rec){w.classList.remove('open');return;}
+  const uses=whatUses(deps,rec.name);                         // who uses/extends this
+  const usesThis=deps.filter(e=>e.from===rec.name);           // what this uses/extends
+  const kin=kinOf(N,rec.name,5);
+  const mates=inChamber(N,rec.chamber).filter(n=>n!==rec.name);
+  const chip=n=>`<span class="chip" data-n="${n}">${n}</span>`;
+  w.innerHTML=`<div class="head"><span class="nm">${rec.name}${rec.live?' <a href="'+rec.url+'" target="_blank" rel="noopener" style="font-size:12px">▶ live</a>':''}</span><span class="sig">sig ${rec.sig} · chamber ${rec.chamber}</span></div>
+    <div class="body">
+      ${rec.desc?`<div class="line"><span class="lk">what it does</span><span>${esc(rec.desc)}</span></div>`:''}
+      <div class="line"><span class="lk">what uses it</span><span>${uses.length?uses.map(chip).join(''):'<span class="mono" style="color:var(--muted)">— (in the curated core)</span>'}</span></div>
+      <div class="line"><span class="lk">it uses / extends</span><span>${usesThis.length?usesThis.map(e=>chip(e.to)).join(''):'<span class="mono" style="color:var(--muted)">—</span>'}</span></div>
+      <div class="line"><span class="lk">kin · nearest</span><span>${kin.length?kin.map(chip).join(''):'<span class="mono" style="color:var(--muted)">—</span>'}</span></div>
+      <div class="line"><span class="lk">chamber ${rec.chamber}</span><span>${mates.length} others here · ${mates.slice(0,6).map(chip).join('')}${mates.length>6?'…':''}</span></div>
+    </div>`;
+  w.classList.add('open');
+  w.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{$('q').value=c.dataset.n;walk(c.dataset.n);w.scrollIntoView({behavior:'smooth',block:'nearest'});});
+}
+
+let hover=-1;
+function draw(){
+  const c=$('c'),g=c.getContext('2d'),W=c.width,H=c.height;
+  const css=n=>getComputedStyle(root).getPropertyValue(n).trim();
+  const n=N.placed.length;
+  const maxR=Math.max(...pos.map(p=>Math.hypot(...p)));
+  const cx=W/2,cy=H/2,scale=(Math.min(W,H)/2-30)/maxR;
+  const pt=i=>[cx+pos[i][0]*scale,cy+pos[i][1]*scale];
+  g.clearRect(0,0,W,H);
+  // every repo, colored by its chamber — the estate as one placed field
+  for(let i=0;i<n;i++){const[x,y]=pt(i);const rec=N.placed[i];
+    g.globalAlpha=rec.live?1:0.72;g.fillStyle=chamberColors[rec.chamber]||css('--muted');
+    g.beginPath();g.arc(x,y,rec.live?3.4:2.1,0,7);g.fill();
+    if(rec.live){g.globalAlpha=.5;g.strokeStyle='#fff';g.lineWidth=.6;g.beginPath();g.arc(x,y,5,0,7);g.stroke();}
+  }
+  g.globalAlpha=1;
+}
+// hover to identify a repo
+$('c').addEventListener('mousemove',e=>{
+  if(!N)return;const c=$('c'),r=c.getBoundingClientRect();
+  const mx=(e.clientX-r.left)*(c.width/r.width), my=(e.clientY-r.top)*(c.height/r.height);
+  const maxR=Math.max(...pos.map(p=>Math.hypot(...p)));const cx=c.width/2,cy=c.height/2,scale=(Math.min(c.width,c.height)/2-30)/maxR;
+  let best=-1,bd=14*14;for(let i=0;i<N.placed.length;i++){const x=cx+pos[i][0]*scale,y=cy+pos[i][1]*scale;const d=(x-mx)**2+(y-my)**2;if(d<bd){bd=d;best=i;}}
+  c.title=best>=0?`${N.placed[best].name} · chamber ${N.placed[best].chamber}`:'';
+});
+$('c').addEventListener('click',e=>{if(c2()>=0){const nm=N.placed[c2()].name;$('q').value=nm;walk(nm);$('walk-sec').scrollIntoView({behavior:'smooth'});}
+  function c2(){const c=$('c'),r=c.getBoundingClientRect();const mx=(e.clientX-r.left)*(c.width/r.width),my=(e.clientY-r.top)*(c.height/r.height);const maxR=Math.max(...pos.map(p=>Math.hypot(...p)));const cx=c.width/2,cy=c.height/2,scale=(Math.min(c.width,c.height)/2-30)/maxR;let best=-1,bd=16*16;for(let i=0;i<N.placed.length;i++){const x=cx+pos[i][0]*scale,y=cy+pos[i][1]*scale;const d=(x-mx)**2+(y-my)**2;if(d<bd){bd=d;best=i;}}return best;}});
+if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+</script>
+</body>
+</html>

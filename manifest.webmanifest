@@ -1,0 +1,1 @@
+{ "name":"The Estate, Nested","short_name":"Estate Nest","description":"The ~1000-repo estate poured into the dodeca memory — signed, placed, wired, walkable.","start_url":"./","scope":"./","display":"standalone","background_color":"#080a0e","theme_color":"#080a0e","icons":[{"src":"./icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}] }
