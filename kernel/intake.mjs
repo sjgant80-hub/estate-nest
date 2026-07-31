@@ -66,6 +66,27 @@ export function intakeMany(archive, repos) {
   return { archive: arc, ...tally };
 }
 
+// MIRROR the archive to the current clean (fork-filtered) list: add new, update changed, keep
+// unchanged, and PRUNE anything no longer present (a fork that slipped in, or a deleted/renamed repo).
+// The estate's OWN repos ARE the ground truth for a code-nest — unlike chat history, a repo can leave,
+// so the archive tracks the live estate exactly (fork-free) rather than only ever growing.
+export function syncArchive(archive, current) {
+  const base = normArchive(archive);
+  const oldByName = new Map(base.nodes.filter((n) => n && n.name).map((n) => [n.name, n]));
+  const cur = (Array.isArray(current) ? current : []).map(cleanRepo).filter(Boolean);
+  const now = new Set(cur.map((r) => r.name));
+  const added = [], updated = [], unchanged = [];
+  const nodes = cur.map((r) => {
+    if (!oldByName.has(r.name)) { added.push(r.name); return r; }
+    (whatItDoes(oldByName.get(r.name)) !== whatItDoes(r) ? updated : unchanged).push(r.name);
+    return r;                                          // always take the fresh version
+  });
+  const pruned = base.nodes.filter((n) => n && n.name && !now.has(n.name)).map((n) => n.name);
+  const out = normArchive(archive);
+  out.nodes = nodes;                                   // = exactly the current fork-free set
+  return { archive: out, added, updated, unchanged, pruned };
+}
+
 // the SYNC PLAN: diff the archive against the CURRENT repo list — what is new, changed, or gone.
 export function diffArchive(archive, current) {
   const arc = normArchive(archive);

@@ -34,6 +34,7 @@ for (const [name, fn] of Object.entries({
   'normArchive': (x) => intake.normArchive(x),
   'intakeOne':  (x) => intake.intakeOne(x, x),
   'intakeMany': (x) => intake.intakeMany(x, x),
+  'syncArchive': (x) => intake.syncArchive(x, x),
   'diffArchive': (x) => intake.diffArchive(x, x),
 })) {
   const f = await fuzz(fn);

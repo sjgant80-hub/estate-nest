@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanRepo, normArchive, intakeOne, intakeMany, diffArchive } from '../kernel/intake.mjs';
+import { cleanRepo, normArchive, intakeOne, intakeMany, syncArchive, diffArchive } from '../kernel/intake.mjs';
 
 const A0 = { generated: '2026-07-31', nodes: [
   { name: 'alpha', desc: 'a toll that gates content', lang: 'JavaScript', topics: [], live: true, url: 'u' },
@@ -47,6 +47,23 @@ test('intakeMany: batch tally of added / updated / unchanged', () => {
   assert.equal(res.archive.nodes.length, 4);                             // 2 original + 2 added
   assert.equal(A0.nodes.length, 2);                                      // input untouched
   assert.equal(intakeMany(A0, null).archive.nodes.length, 2);           // total
+});
+
+test('syncArchive mirrors the archive to the current clean list — prunes what left', () => {
+  const cur = [
+    { name: 'alpha', desc: 'a toll that gates content', lang: 'JavaScript' }, // unchanged
+    { name: 'gamma', desc: 'a brand new organ' },                            // added
+    // 'beta' is absent from current → must be pruned (e.g. a fork now filtered out, or deleted)
+  ];
+  const res = syncArchive(A0, cur);
+  assert.deepEqual(res.archive.nodes.map((n) => n.name).sort(), ['alpha', 'gamma']); // = exactly the current set
+  assert.deepEqual(res.added, ['gamma']);
+  assert.deepEqual(res.pruned, ['beta']);                                    // beta left → pruned, not kept forever
+  assert.ok(res.unchanged.includes('alpha'));
+  assert.equal(A0.nodes.length, 2);                                          // input archive untouched
+  assert.deepEqual(syncArchive(A0, []).archive.nodes, []);                   // empty current → everything pruned
+  assert.deepEqual(syncArchive({ nodes: [null, { name: 'x', desc: 'd' }] }, [{ name: 'x', desc: 'd' }]).pruned, []); // a null node in the archive is skipped, not fatal (&& not ||)
+  assert.equal(syncArchive(null, null).archive.nodes.length, 0);            // total
 });
 
 test('diffArchive: the sync plan — added, changed, gone', () => {

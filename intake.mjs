@@ -12,7 +12,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { intakeOne, intakeMany, diffArchive } from './kernel/intake.mjs';
+import { intakeOne, syncArchive, diffArchive } from './kernel/intake.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ESTATE = join(__dirname, 'estate.json');
@@ -30,11 +30,13 @@ function save(arc) {
 }
 
 function fetchCurrent() {
+  // --limit high enough to fetch the WHOLE org (it exceeds 1000 — the old 1000 cap truncated it and
+  // made the nest incomplete). isFork filter is the tightened fork gate — forks never enter the nest.
   const raw = JSON.parse(execSync(
-    'gh repo list sjgant80-hub --limit 1000 --json name,description,primaryLanguage,repositoryTopics,pushedAt,homepageUrl,isFork',
-    { encoding: 'utf8', maxBuffer: 1 << 26 },
+    'gh repo list sjgant80-hub --limit 4000 --source --json name,description,primaryLanguage,repositoryTopics,pushedAt,homepageUrl,isFork',
+    { encoding: 'utf8', maxBuffer: 1 << 27 },
   ));
-  return raw.filter((r) => !r.isFork).map((r) => ({
+  return raw.filter((r) => r.isFork !== true).map((r) => ({
     name: r.name,
     desc: (r.description || '').trim(),
     lang: r.primaryLanguage ? r.primaryLanguage.name : '',
@@ -56,12 +58,11 @@ if (cmd === 'sync') {
     console.error('add an ESTATE_PAT secret for full coverage. no-op this run.');
     process.exit(0);   // stay green — the scheduled Action just tries again next time
   }
-  const plan = diffArchive(arc, current);
-  console.log(`sync plan: +${plan.added.length} new · ~${plan.changed.length} changed · −${plan.gone.length} gone`);
-  if (plan.added.length) console.log('  new:', plan.added.slice(0, 20).join(', ') + (plan.added.length > 20 ? ' …' : ''));
-  const res = intakeMany(arc, current);
+  const res = syncArchive(arc, current);               // MIRROR to the current fork-free estate (prunes what left)
   save(res.archive);
-  console.log(`archive: ${res.archive.nodes.length} repos · +${res.added.length} added · ~${res.updated.length} updated · ${res.unchanged.length} unchanged`);
+  console.log(`sync: ${res.archive.nodes.length} repos (fork-free) · +${res.added.length} added · ~${res.updated.length} updated · −${res.pruned.length} pruned · ${res.unchanged.length} unchanged`);
+  if (res.added.length) console.log('  added:', res.added.slice(0, 20).join(', ') + (res.added.length > 20 ? ' …' : ''));
+  if (res.pruned.length) console.log('  pruned (forks / gone):', res.pruned.slice(0, 20).join(', ') + (res.pruned.length > 20 ? ' …' : ''));
   console.log('the nest (placement + edges) re-derives from this in the browser — nothing to rebuild.');
 } else if (cmd === 'add') {
   const name = process.argv[3];
