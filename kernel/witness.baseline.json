@@ -8,5 +8,10 @@
     "mutation": "&& → ||",
     "snippet": "for (const c of (cube.corners || [])) { if (out.length >= kk) break; if (c && c.meta && c.",
     "reason": "EQUIVALENT (the c && c.meta guard): every corner fall-remember returns is a stored record with meta, and retrieve never returns the query itself as a corner, so `c && c.meta` is always true for a real corner — the && vs || distinction is unobservable on any input the pipeline produces (verified: kin never includes self, never crashes on a meta-less corner)."
+  },
+  {
+    "mutation": "|| → &&",
+    "snippet": "if (!archive || typeof archive !== 'object') return out;",
+    "reason": "intake.mjs — EQUIVALENT: this early-return is a fast path for null/non-object archives; the rest of normArchive is fully guarded (try/catch on every read), so it returns the same {nodes:[]} for those inputs whether the early return fires (||) or not (&&). Optimization, not a behaviour boundary."
   }
 ]

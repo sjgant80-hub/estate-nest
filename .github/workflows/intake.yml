@@ -1,0 +1,44 @@
+name: intake
+# The intake hook, automated: every few hours (and on demand) re-sync the nest's L0 archive with
+# the current sjgant80-hub repos, so a build made anywhere lands PLACED in the nest without anyone
+# re-running it. L0 is append-only; the nest (L1) re-derives in the browser from the committed archive.
+on:
+  schedule:
+    - cron: '17 */6 * * *'      # every 6 hours
+  workflow_dispatch: {}          # or run it manually
+  push:
+    branches: [master]
+    paths: ['kernel/**', 'intake.mjs']   # re-sync if the intake logic itself changes
+
+permissions:
+  contents: write
+
+concurrency:
+  group: intake
+  cancel-in-progress: false
+
+jobs:
+  intake:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: sync the archive with the current estate
+        env:
+          # ESTATE_PAT (a read-only repo-list PAT) covers PRIVATE repos too; without it, the default
+          # token still syncs the PUBLIC estate. Add it as a repo secret to nest the whole estate.
+          GH_TOKEN: ${{ secrets.ESTATE_PAT || github.token }}
+        run: node intake.mjs sync
+      - name: commit the refreshed archive (only if it changed)
+        run: |
+          git config user.name 'estate-intake'
+          git config user.email 'estate-intake@users.noreply.github.com'
+          git add estate.json
+          if git diff --staged --quiet; then
+            echo 'nest already current — nothing to intake.'
+          else
+            git commit -m "intake: sync nest with current estate ($(date -u +%Y-%m-%d))"
+            git push
+          fi

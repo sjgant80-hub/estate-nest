@@ -100,9 +100,13 @@
 <footer><div class="wrap">
   <p>The whole nest runs client-side on <code>kernel/nest.mjs</code> — sign (sha256 content id), place
   (fall-remember's real dodeca routing), wire (kin by cosine + a curated core of explicit deps), traverse.
-  Proof-of-play 41/44 killed +3 reviewed-equivalents, fuzz never-throws — CLEAN. Explicit <em>uses/extends</em>
-  edges are a curated core (the organs I've wired); everything else is kin — edges are ongoing gardening.
-  Re-runnable: improve the signature extraction, re-nest, lose nothing.</p>
+  Proof-of-play CLEAN, fuzz never-throws. Explicit <em>uses/extends</em> edges are a curated core (the
+  organs I've wired); everything else is kin — edges are ongoing gardening.</p>
+  <p><b>Live intake, not a snapshot.</b> The L0 archive (<code>estate.json</code>) is kept current by the
+  intake hook — a scheduled Action running <code>node intake.mjs sync</code> (and <code>intake add</code>
+  when the hand feeds the body directly). New builds land <em>placed</em>, not dropped; the nest above
+  re-derives from the live archive. L0 is append-only and immutable — improve the signature extractor
+  tomorrow, re-nest the same archive into a better body, lose nothing.</p>
   <p class="sig-l">◊ · κ = 1 ⇄ φ⁴ · the organ was always waiting — now the estate lives inside it</p>
 </div></footer>
 

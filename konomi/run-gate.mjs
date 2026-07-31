@@ -3,16 +3,17 @@
 // and sha256 are the vendored, already-gated organs, reused not re-mutated.
 import { runMutations, fuzz } from './witness.mjs';
 import * as nest from '../kernel/nest.mjs';
+import * as intake from '../kernel/intake.mjs';
 
-const TEST = ['node', '--test', 'test/nest.test.mjs'];
+const TEST = ['node', '--test', 'test/nest.test.mjs', 'test/intake.test.mjs'];
 let clean = true;
 
-console.log('── mutation gate (kernel/nest.mjs) ─────');
-const r = runMutations('kernel/nest.mjs', { testCmd: TEST });
-if (r.baselineFailed) { console.log('  BASELINE RED —', r.reason); clean = false; }
-else {
+for (const src of ['kernel/nest.mjs', 'kernel/intake.mjs']) {
+  console.log(`── mutation gate (${src}) ─────`);
+  const r = runMutations(src, { testCmd: TEST });
+  if (r.baselineFailed) { console.log('  BASELINE RED —', r.reason); clean = false; continue; }
   const ig = r.ignored.length ? ` (+${r.ignored.length} baselined)` : '';
-  console.log(`  kernel/nest.mjs: ${r.killed}/${r.total} killed  score=${r.score}${ig}  ${r.clean ? 'CLEAN' : 'THEATRE'}`);
+  console.log(`  ${src}: ${r.killed}/${r.total} killed  score=${r.score}${ig}  ${r.clean ? 'CLEAN' : 'THEATRE'}`);
   for (const s of r.survived) console.log(`     SURVIVED L${s.line}  ${s.mutation}  | ${s.snippet}`);
   clean = clean && r.clean;
 }
@@ -29,6 +30,11 @@ for (const [name, fn] of Object.entries({
   'chamberOf':  (x) => nest.chamberOf(x, x),
   'inChamber':  (x) => nest.inChamber(x, x),
   'kinOf':      (x) => nest.kinOf(x, x),
+  'cleanRepo':  (x) => intake.cleanRepo(x),
+  'normArchive': (x) => intake.normArchive(x),
+  'intakeOne':  (x) => intake.intakeOne(x, x),
+  'intakeMany': (x) => intake.intakeMany(x, x),
+  'diffArchive': (x) => intake.diffArchive(x, x),
 })) {
   const f = await fuzz(fn);
   console.log(`  ${name}: ${f.neverThrows ? 'never throws — OK' : 'THREW on ' + f.throwsOn.map((t) => t.input).join(', ')}`);
