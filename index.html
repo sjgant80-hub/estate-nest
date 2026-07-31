@@ -145,7 +145,7 @@ function walk(name){
   const kin=kinOf(N,rec.name,5);
   const mates=inChamber(N,rec.chamber).filter(n=>n!==rec.name);
   const chip=n=>`<span class="chip" data-n="${n}">${n}</span>`;
-  w.innerHTML=`<div class="head"><span class="nm">${rec.name}${rec.live?' <a href="'+rec.url+'" target="_blank" rel="noopener" style="font-size:12px">▶ live</a>':''}</span><span class="sig">sig ${rec.sig} · chamber ${rec.chamber}</span></div>
+  w.innerHTML=`<div class="head"><span class="nm">${rec.name} <a href="https://github.com/sjgant80-hub/${encodeURIComponent(rec.name)}" target="_blank" rel="noopener" style="font-size:12px;color:var(--muted)">↗ repo</a>${rec.live?' <a href="'+rec.url+'" target="_blank" rel="noopener" style="font-size:12px">▶ live</a>':''}</span><span class="sig">sig ${rec.sig} · chamber ${rec.chamber}</span></div>
     <div class="body">
       ${rec.desc?`<div class="line"><span class="lk">what it does</span><span>${esc(rec.desc)}</span></div>`:''}
       <div class="line"><span class="lk">what uses it</span><span>${uses.length?uses.map(chip).join(''):'<span class="mono" style="color:var(--muted)">— (in the curated core)</span>'}</span></div>
