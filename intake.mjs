@@ -24,6 +24,7 @@ function save(arc) {
   arc.total = arc.nodes.length;
   arc.withDesc = arc.nodes.filter((n) => n.desc).length;
   arc.spiral = arc.nodes.filter((n) => n.live).length;
+  arc.private = arc.nodes.filter((n) => n.private).length;
   const cut = Date.parse(today) - 11 * 864e5;                 // ~11-day frontier window
   arc.frontier = arc.nodes.filter((n) => Date.parse(n.pushed || '2000-01-01') >= cut).length;
   writeFileSync(ESTATE, JSON.stringify(arc));
@@ -32,8 +33,10 @@ function save(arc) {
 function fetchCurrent() {
   // --limit high enough to fetch the WHOLE org (it exceeds 1000 — the old 1000 cap truncated it and
   // made the nest incomplete). isFork filter is the tightened fork gate — forks never enter the nest.
+  // `visibility` → the private flag: private repos need a token with `repo` scope (ESTATE_PAT in CI);
+  // the default github.token sees only public, and syncArchive's shield keeps private repos safe then.
   const raw = JSON.parse(execSync(
-    'gh repo list sjgant80-hub --limit 4000 --source --json name,description,primaryLanguage,repositoryTopics,pushedAt,homepageUrl,isFork',
+    'gh repo list sjgant80-hub --limit 4000 --source --json name,description,primaryLanguage,repositoryTopics,pushedAt,homepageUrl,isFork,visibility',
     { encoding: 'utf8', maxBuffer: 1 << 27 },
   ));
   return raw.filter((r) => r.isFork !== true).map((r) => ({
@@ -42,6 +45,7 @@ function fetchCurrent() {
     lang: r.primaryLanguage ? r.primaryLanguage.name : '',
     topics: (r.repositoryTopics || []).map((t) => t.name || t),
     live: !!(r.homepageUrl && /github\.io|sjgant80/.test(r.homepageUrl)),
+    private: r.visibility ? String(r.visibility).toUpperCase() !== 'PUBLIC' : false,
     url: r.homepageUrl || null,
     pushed: r.pushedAt.slice(0, 10),
   }));
@@ -60,9 +64,12 @@ if (cmd === 'sync') {
   }
   const res = syncArchive(arc, current);               // MIRROR to the current fork-free estate (prunes what left)
   save(res.archive);
-  console.log(`sync: ${res.archive.nodes.length} repos (fork-free) · +${res.added.length} added · ~${res.updated.length} updated · −${res.pruned.length} pruned · ${res.unchanged.length} unchanged`);
+  const priv = res.archive.nodes.filter((n) => n.private).length;
+  console.log(`sync: ${res.archive.nodes.length} repos (fork-free · ${priv} private) · +${res.added.length} added · ~${res.updated.length} updated · −${res.pruned.length} pruned · ${res.unchanged.length} unchanged`);
   if (res.added.length) console.log('  added:', res.added.slice(0, 20).join(', ') + (res.added.length > 20 ? ' …' : ''));
   if (res.pruned.length) console.log('  pruned (forks / gone):', res.pruned.slice(0, 20).join(', ') + (res.pruned.length > 20 ? ' …' : ''));
+  if (!res.sawPrivate && res.protectedPrivate.length)  // under-scoped token — the shield engaged
+    console.log(`  ⚠ this token can't see private repos: ${res.protectedPrivate.length} private repo(s) SHIELDED from prune (kept, not refreshed). Add the ESTATE_PAT secret for full private coverage.`);
   console.log('the nest (placement + edges) re-derives from this in the browser — nothing to rebuild.');
 } else if (cmd === 'add') {
   const name = process.argv[3];

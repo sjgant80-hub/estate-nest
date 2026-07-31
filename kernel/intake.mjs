@@ -21,6 +21,7 @@ export function cleanRepo(r) {
     lang: S(r.lang),
     topics: Array.isArray(r.topics) ? r.topics.map(S).filter(Boolean) : [],
     live: !!r.live,
+    private: !!r.private,
     url: r.url || null,
     pushed: S(r.pushed),
   };
@@ -70,21 +71,37 @@ export function intakeMany(archive, repos) {
 // unchanged, and PRUNE anything no longer present (a fork that slipped in, or a deleted/renamed repo).
 // The estate's OWN repos ARE the ground truth for a code-nest — unlike chat history, a repo can leave,
 // so the archive tracks the live estate exactly (fork-free) rather than only ever growing.
-export function syncArchive(archive, current) {
+//
+// PRIVATE SHIELD: pruning is only safe if the fetch was AUTHORITATIVE. An under-scoped token (CI's
+// default github.token, without ESTATE_PAT) can list PUBLIC repos but silently omits PRIVATE ones —
+// which would then look "gone" and get pruned. So if this fetch saw NO private repo, we refuse to
+// prune the archive's private repos: they aren't gone, just invisible. They're pruned only once a
+// private-capable token (ESTATE_PAT) confirms it by actually seeing private repos. opts.prunePrivate
+// forces the decision either way (for tests / an explicit "I know this fetch is complete").
+export function syncArchive(archive, current, opts = {}) {
   const base = normArchive(archive);
   const oldByName = new Map(base.nodes.filter((n) => n && n.name).map((n) => [n.name, n]));
   const cur = (Array.isArray(current) ? current : []).map(cleanRepo).filter(Boolean);
   const now = new Set(cur.map((r) => r.name));
+  const sawPrivate = cur.some((r) => r.private);       // did this token actually see private repos?
+  const prunePrivate = opts.prunePrivate === undefined ? sawPrivate : !!opts.prunePrivate;
   const added = [], updated = [], unchanged = [];
-  const nodes = cur.map((r) => {
-    if (!oldByName.has(r.name)) { added.push(r.name); return r; }
-    (whatItDoes(oldByName.get(r.name)) !== whatItDoes(r) ? updated : unchanged).push(r.name);
-    return r;                                          // always take the fresh version
-  });
-  const pruned = base.nodes.filter((n) => n && n.name && !now.has(n.name)).map((n) => n.name);
+  const kept = new Map();
+  for (const r of cur) {                               // the fresh, authoritative set for what this token sees
+    if (!oldByName.has(r.name)) added.push(r.name);
+    else (whatItDoes(oldByName.get(r.name)) !== whatItDoes(r) ? updated : unchanged).push(r.name);
+    kept.set(r.name, r);                               // always take the fresh version
+  }
+  const protectedPrivate = [];
+  if (!prunePrivate) {                                 // blind to private → shield the archive's private repos
+    for (const n of base.nodes) {
+      if (n && n.name && n.private && !now.has(n.name)) { kept.set(n.name, n); protectedPrivate.push(n.name); }
+    }
+  }
+  const pruned = base.nodes.filter((n) => n && n.name && !kept.has(n.name)).map((n) => n.name);
   const out = normArchive(archive);
-  out.nodes = nodes;                                   // = exactly the current fork-free set
-  return { archive: out, added, updated, unchanged, pruned };
+  out.nodes = [...kept.values()];                      // = the current fork-free set (+ shielded private)
+  return { archive: out, added, updated, unchanged, pruned, protectedPrivate, sawPrivate };
 }
 
 // the SYNC PLAN: diff the archive against the CURRENT repo list — what is new, changed, or gone.

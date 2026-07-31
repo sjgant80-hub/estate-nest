@@ -76,6 +76,7 @@
     <div class="cell"><div class="n" id="s-chambers">12</div><div class="k">dodeca chambers</div></div>
     <div class="cell"><div class="n" id="s-edges">—</div><div class="k">typed edges</div></div>
     <div class="cell"><div class="n" id="s-dups">—</div><div class="k">duplicate clusters</div></div>
+    <div class="cell"><div class="n" id="s-private">—</div><div class="k">private · nested</div></div>
   </div>
 </div>
 
@@ -130,12 +131,17 @@ Promise.all([fetch('./estate.json').then(r=>r.json()), fetch('./deps.json').then
 function render(){
   $('s-total').textContent=N.size.toLocaleString();
   $('s-dups').textContent=N.duplicates.length;
-  const kin=kinEdges(N,1);
-  $('s-edges').textContent=(kin.length+deps.length).toLocaleString();
+  const priv=(typeof est.private==='number')?est.private:est.nodes.filter(n=>n&&n.private).length;
+  $('s-private').textContent=priv.toLocaleString();
   // duplicates, biggest first
   const dups=[...N.duplicates].sort((a,b)=>b.repos.length-a.repos.length).slice(0,8);
   $('dups').innerHTML=dups.map(d=>`<div class="dup"><b>×${d.repos.length}</b> <span class="mono" style="color:var(--gold)">[${d.sig}]</span> <span class="rp">${d.repos.slice(0,7).join(', ')}${d.repos.length>7?' … +'+(d.repos.length-7):''}</span></div>`).join('')||'<p class="mono" style="color:var(--muted)">no exact duplicates</p>';
   draw();
+  // kinEdges over the whole estate is O(n²) — it's ONLY needed for the edge-count stat, so compute it
+  // OFF the first paint. The field, all other stats, and the traverse are interactive immediately.
+  $('s-edges').textContent='…';
+  const later=window.requestIdleCallback||((f)=>setTimeout(f,0));
+  later(()=>{ const kin=kinEdges(N,1); $('s-edges').textContent=(kin.length+deps.length).toLocaleString(); });
 }
 
 $('q').addEventListener('input',()=>walk($('q').value.trim()));

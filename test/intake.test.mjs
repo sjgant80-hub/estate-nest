@@ -7,9 +7,10 @@ const A0 = { generated: '2026-07-31', nodes: [
   { name: 'beta', desc: 'a legal navigator', lang: 'JavaScript', topics: [] },
 ] };
 
-test('cleanRepo normalizes a repo; junk and no-name → null', () => {
-  const c = cleanRepo({ name: 'x', desc: 'does a thing', lang: 'Go', topics: ['a', ''], live: 1, url: 'U', pushed: '2026-07-31' });
-  assert.deepEqual(c, { name: 'x', desc: 'does a thing', lang: 'Go', topics: ['a'], live: true, url: 'U', pushed: '2026-07-31' });
+test('cleanRepo normalizes a repo (incl the private flag); junk and no-name → null', () => {
+  const c = cleanRepo({ name: 'x', desc: 'does a thing', lang: 'Go', topics: ['a', ''], live: 1, private: 1, url: 'U', pushed: '2026-07-31' });
+  assert.deepEqual(c, { name: 'x', desc: 'does a thing', lang: 'Go', topics: ['a'], live: true, private: true, url: 'U', pushed: '2026-07-31' });
+  assert.equal(cleanRepo({ name: 'y', desc: 'd' }).private, false);        // default: public
   assert.equal(typeof cleanRepo({ name: 'x', desc: 5 }).desc, 'string');   // number desc coerced to string (S === path)
   assert.equal(cleanRepo(null), null);
   assert.equal(cleanRepo({ desc: 'no name' }), null);
@@ -64,6 +65,34 @@ test('syncArchive mirrors the archive to the current clean list — prunes what 
   assert.deepEqual(syncArchive(A0, []).archive.nodes, []);                   // empty current → everything pruned
   assert.deepEqual(syncArchive({ nodes: [null, { name: 'x', desc: 'd' }] }, [{ name: 'x', desc: 'd' }]).pruned, []); // a null node in the archive is skipped, not fatal (&& not ||)
   assert.equal(syncArchive(null, null).archive.nodes.length, 0);            // total
+});
+
+test('syncArchive SHIELDS private repos from a blind (under-scoped) prune', () => {
+  const arc = { nodes: [
+    { name: 'pubA', desc: 'a public organ', private: false },
+    { name: 'privX', desc: 'a private organ', private: true },
+  ] };
+
+  // an UNDER-SCOPED fetch (CI's default token) sees only public → privX is absent, but must NOT be pruned
+  const blind = syncArchive(arc, [{ name: 'pubA', desc: 'a public organ', private: false }]);
+  assert.equal(blind.sawPrivate, false);                                     // token saw no private repo
+  assert.deepEqual(blind.protectedPrivate, ['privX']);                       // → shielded
+  assert.deepEqual(blind.pruned, []);                                        // nothing pruned
+  assert.ok(blind.archive.nodes.some((n) => n.name === 'privX'));            // still in the nest
+
+  // a PRIVATE-CAPABLE fetch (ESTATE_PAT) that genuinely no longer lists privX → prune it for real
+  const full = syncArchive(arc, [
+    { name: 'pubA', desc: 'a public organ', private: false },
+    { name: 'privY', desc: 'another private organ', private: true },         // proves the token CAN see private
+  ]);
+  assert.equal(full.sawPrivate, true);
+  assert.deepEqual(full.protectedPrivate, []);                               // shield off — fetch is authoritative
+  assert.deepEqual(full.pruned, ['privX']);                                  // genuinely gone → pruned
+  assert.ok(!full.archive.nodes.some((n) => n.name === 'privX'));
+
+  // opts.prunePrivate overrides the auto-decision either way
+  assert.deepEqual(syncArchive(arc, [{ name: 'pubA', desc: 'a public organ' }], { prunePrivate: true }).pruned, ['privX']);
+  assert.deepEqual(syncArchive(arc, [{ name: 'pubA', desc: 'a public organ', private: true }], { prunePrivate: false }).protectedPrivate, ['privX']);
 });
 
 test('diffArchive: the sync plan — added, changed, gone', () => {
