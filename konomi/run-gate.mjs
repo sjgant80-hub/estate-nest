@@ -30,6 +30,7 @@ for (const [name, fn] of Object.entries({
   'chamberOf':  (x) => nest.chamberOf(x, x),
   'inChamber':  (x) => nest.inChamber(x, x),
   'kinOf':      (x) => nest.kinOf(x, x),
+  'graphOf':    (x) => nest.graphOf(x, x),
   'cleanRepo':  (x) => intake.cleanRepo(x),
   'normArchive': (x) => intake.normArchive(x),
   'intakeOne':  (x) => intake.intakeOne(x, x),

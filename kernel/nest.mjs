@@ -9,6 +9,7 @@
 // Same thousand repos. Flat pile → nested body. Nothing added, nothing rebuilt — PLACED.
 import FallRemember from './fall-remember.mjs';
 import { sha256 } from './sha256.mjs';
+import { graph } from './kg.mjs';   // the-kg (vendored, gated 20/20) — turns the weak edges into a TYPED graph
 
 // what a repo DOES — the text its identity + placement are computed from (desc + topics + language).
 export function whatItDoes(repo) {
@@ -90,6 +91,25 @@ export function kinOf(nested, name, k = 3) {
   const out = [];
   for (const c of (cube.corners || [])) { if (out.length >= kk) break; if (c && c.meta && c.meta.name !== name) out.push(c.meta.name); }
   return out;
+}
+
+// Pass 3+ · THE TYPED GRAPH (wire the-kg in) — the weak edges (kin/uses) become a real typed graph with
+// cycle-safe, edge-type-aware traversal: chambers `contains` repos, cosine nearness is `kin`, deps are
+// `reuses`/`depends`. Now "what's kin to X but NOT a dep" is one typed walk, and kin never crosses a dep.
+export function graphOf(nested, deps) {
+  const g = graph();
+  const placed = nested && Array.isArray(nested.placed) ? nested.placed : [];
+  for (const p of placed) {
+    if (!p || !p.name) continue;
+    g.addNode(p.name, { type: 'repo', meta: { chamber: p.chamber, url: p.url || null } });
+    if (Number.isInteger(p.chamber)) { g.addNode('chamber-' + p.chamber, { type: 'chamber' }); g.addEdge('chamber-' + p.chamber, p.name, 'contains'); }
+  }
+  for (const e of kinEdges(nested, 1)) { try { g.addEdge(e.from, e.to, 'kin'); } catch { /* unknown node guarded by kg */ } }
+  for (const e of (Array.isArray(deps) ? deps : [])) {
+    if (!e || !e.from || !e.to) continue;
+    try { g.addEdge(e.from, e.to, e.type === 'extends' ? 'depends' : 'reuses'); } catch { /* skip malformed */ }
+  }
+  return g;
 }
 
 function S(x) { try { return typeof x === 'string' ? x : (x == null ? '' : String(x)); } catch { return ''; } }

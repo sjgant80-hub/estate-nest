@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  whatItDoes, foldSign, nest, records, kinEdges, whatUses, chamberOf, inChamber, kinOf,
+  whatItDoes, foldSign, nest, records, kinEdges, whatUses, chamberOf, inChamber, kinOf, graphOf,
 } from '../kernel/nest.mjs';
 
 const REPOS = [
@@ -65,6 +65,43 @@ test('traverse: chamberOf / inChamber / kin read the placed structure', () => {
   assert.ok(Array.isArray(kinOf(n, 'alpha', 2)));       // cosine neighbours by what-it-does
   assert.deepEqual(kinOf(n, 'nonexistent'), []);        // total
   assert.deepEqual(kinOf(null, 'x'), []);
+});
+
+test('graphOf: the weak edges become a TYPED graph (the-kg wire) — chambers contain, kin, typed deps', () => {
+  const n = nest(REPOS);
+  const deps = [
+    { from: 'gamma', to: 'delta', type: 'uses' },
+    { from: 'alpha', to: 'delta', type: 'extends' },
+  ];
+  const g = graphOf(n, deps);
+  // every placed repo is a node, plus its chamber; the chamber CONTAINS it (directed)
+  const cDelta = chamberOf(n, 'delta');
+  assert.ok(g.hasEdge('chamber-' + cDelta, 'contains', 'delta'));           // chamber → repo
+  assert.ok(!g.hasEdge('delta', 'contains', 'chamber-' + cDelta));          // contains is directed, not symmetric
+  assert.equal(g.query({ nodeType: 'repo' }).nodes.length, n.size);         // one repo node per placed repo
+  // the chamber node's meta.url is carried through
+  assert.equal(g.nodes.get('alpha').meta.url, 'u1');                        // alpha's url kept (|| not &&)
+  assert.equal(g.nodes.get('gamma').meta.url, null);                       // no url → null
+  // dep edges are TYPED: uses → reuses, extends → depends
+  assert.ok(g.hasEdge('gamma', 'reuses', 'delta'));                        // uses → reuses
+  assert.ok(g.hasEdge('alpha', 'depends', 'delta'));                       // extends → depends
+  assert.ok(!g.hasEdge('gamma', 'depends', 'delta'));                      // the mapping is exact
+  // kin edges (cosine) are carried in as 'kin' (symmetric)
+  assert.ok(g.query({ edgeType: 'kin' }).edges.length >= 1);
+  // type-aware traversal: walk 'contains' from a chamber → reaches its members, cycle-safe
+  const reach = g.traverse('chamber-' + cDelta, { edgeTypes: ['contains'] });
+  assert.ok(reach.visited.has('delta'));
+  assert.ok(!reach.visited.has('gamma') || chamberOf(n, 'gamma') === cDelta); // only same-chamber members reached via contains
+  // totals — never throws on garbage, empty graph out
+  assert.equal(graphOf(null).stats().nodes, 0);                            // null nested → empty (&& guard)
+  assert.equal(graphOf('nope').stats().nodes, 0);
+  assert.doesNotThrow(() => graphOf(n, null));                             // null deps guarded (Array.isArray)
+  assert.doesNotThrow(() => graphOf(n, [null, { from: 'x' }]));            // malformed dep skipped (!e || !from || !to)
+  // kill the guard mutations (|| not &&): a malformed placed/dep entry is SKIPPED, never processed or thrown
+  assert.doesNotThrow(() => graphOf({ placed: [null] }, []));              // null placed entry → no throw (first || on L103)
+  assert.equal(graphOf({ placed: [{ chamber: 1 }] }, []).query({ nodeType: 'repo' }).nodes.length, 0);   // name-less placed → NOT a node (second ||)
+  assert.equal(graphOf(n, [{ from: 'gamma', type: 'uses' }]).query({ edgeType: 'reuses' }).edges.length, 0);   // dep missing `to` → no edge (|| on L109)
+  assert.equal(graphOf(n, [{ to: 'delta', type: 'uses' }]).query({ edgeType: 'reuses' }).edges.length, 0);     // dep missing `from` → no edge (|| on L109)
 });
 
 test('kinEdges reads the semantic wiring from cosine nearness (total)', () => {
