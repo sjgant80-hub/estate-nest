@@ -12,7 +12,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { intakeOne, syncArchive, diffArchive } from './kernel/intake.mjs';
+import { intakeOne, syncArchive, diffArchive } from '../kernel/intake.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ESTATE = join(__dirname, 'estate.json');

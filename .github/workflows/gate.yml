@@ -1,0 +1,24 @@
+name: gate
+on: [push, pull_request, workflow_dispatch]
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: the suite runs
+        run: npm test
+      # v0.6+: earlier witness spawned a quoted --test command as an executable NAME on POSIX,
+      # so gates written that way never ran on ubuntu at all.
+      - name: the tests are not theatre
+        run: |
+          git clone --depth 1 --branch v0.6 https://github.com/sjgant80-hub/witness.git /tmp/w
+          node /tmp/w/witness.mjs mutate kernel/nest.mjs --test npm test | tee gate.out
+          node -e "
+            const j=JSON.parse(require('fs').readFileSync('gate.out','utf8').match(/\{[\s\S]*\}/)[0]);
+            if(j.baselineFailed){ console.error('gate could not run: '+j.reason); process.exit(1); }
+            if(!j.killed){ console.error('nothing was tested'); process.exit(1); }
+            if(!j.clean){ console.error(j.survived.length+' mutants survived'); process.exit(1); }
+            console.log('clean — '+j.killed+' killed');
+          "

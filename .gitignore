@@ -1,3 +1,4 @@
 *.witnessbak
-node_modules/
 .DS_Store
+konomi-out/
+node_modules/
