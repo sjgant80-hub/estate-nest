@@ -14,7 +14,8 @@ jobs:
       - name: the tests are not theatre
         run: |
           git clone --depth 1 --branch v0.6 https://github.com/sjgant80-hub/witness.git /tmp/w
-          node /tmp/w/witness.mjs mutate kernel/nest.mjs --test npm test | tee gate.out
+          node /tmp/w/witness.mjs mutate kernel/nest.mjs --test npm test | tee gate.out | tee verdict.txt
+          grep -q "no test-theatre" verdict.txt || { echo "::error::mutants survived"; exit 1; }
           node -e "
             const j=JSON.parse(require('fs').readFileSync('gate.out','utf8').match(/\{[\s\S]*\}/)[0]);
             if(j.baselineFailed){ console.error('gate could not run: '+j.reason); process.exit(1); }
