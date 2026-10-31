@@ -8,7 +8,7 @@ on:
   workflow_dispatch: {}          # or run it manually
   push:
     branches: [master]
-    paths: ['kernel/**', 'intake.mjs']   # re-sync if the intake logic itself changes
+    paths: ['kernel/**', 'scripts/intake.mjs']   # re-sync if the intake logic itself changes
 
 permissions:
   contents: write
@@ -30,7 +30,7 @@ jobs:
           # ESTATE_PAT (a read-only repo-list PAT) covers PRIVATE repos too; without it, the default
           # token still syncs the PUBLIC estate. Add it as a repo secret to nest the whole estate.
           GH_TOKEN: ${{ secrets.ESTATE_PAT || github.token }}
-        run: node intake.mjs sync
+        run: node scripts/intake.mjs sync
       - name: commit the refreshed archive (only if it changed)
         run: |
           git config user.name 'estate-intake'

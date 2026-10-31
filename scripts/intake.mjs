@@ -15,16 +15,24 @@ import { dirname, join } from 'node:path';
 import { intakeOne, syncArchive, diffArchive } from '../kernel/intake.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const ESTATE = join(__dirname, 'estate.json');
+const ESTATE = join(__dirname, '..', 'estate.json');   // the served archive at the repo root (this script lives in scripts/)
 const today = new Date().toISOString().slice(0, 10);
 
 function load() { try { return JSON.parse(readFileSync(ESTATE, 'utf8')); } catch { return { generated: today, org: 'sjgant80-hub', nodes: [] }; } }
+// A PRIVATE repo never goes into this archive: estate.json is served on the public page, so a private
+// repo's name and description must not be in it (it carried 36). Only how many there are is kept: the count
+// is refreshed whenever this run could see them, and otherwise the last count stands. Names in the file named
+// by WITHHOLD (one per line, e.g. today's private list) count as private too.
+const WITHHOLD = (() => { try { return new Set(process.env.WITHHOLD ? readFileSync(process.env.WITHHOLD, 'utf8').split(/\r?\n/).map((s) => s.trim()).filter(Boolean) : []); } catch { return new Set(); } })();
+const isPrivate = (n) => n.private === true || WITHHOLD.has(n.name);
 function save(arc) {
+  const seen = arc.nodes.filter(isPrivate).length;
+  arc.nodes = arc.nodes.filter((n) => !isPrivate(n));
   arc.generated = today;
   arc.total = arc.nodes.length;
   arc.withDesc = arc.nodes.filter((n) => n.desc).length;
   arc.spiral = arc.nodes.filter((n) => n.live).length;
-  arc.private = arc.nodes.filter((n) => n.private).length;
+  arc.private = seen > 0 ? seen : Number.isInteger(arc.private) ? arc.private : 0;
   const cut = Date.parse(today) - 11 * 864e5;                 // ~11-day frontier window
   arc.frontier = arc.nodes.filter((n) => Date.parse(n.pushed || '2000-01-01') >= cut).length;
   writeFileSync(ESTATE, JSON.stringify(arc));
@@ -66,8 +74,10 @@ if (cmd === 'sync') {
   save(res.archive);
   const priv = res.archive.nodes.filter((n) => n.private).length;
   console.log(`sync: ${res.archive.nodes.length} repos (fork-free · ${priv} private) · +${res.added.length} added · ~${res.updated.length} updated · −${res.pruned.length} pruned · ${res.unchanged.length} unchanged`);
-  if (res.added.length) console.log('  added:', res.added.slice(0, 20).join(', ') + (res.added.length > 20 ? ' …' : ''));
-  if (res.pruned.length) console.log('  pruned (forks / gone):', res.pruned.slice(0, 20).join(', ') + (res.pruned.length > 20 ? ' …' : ''));
+  // The Action's log is public too: name only what is in the public archive, and count the rest.
+  const shown = new Set(res.archive.nodes.map((n) => n.name)), named = (xs) => xs.filter((x) => shown.has(x)), hidden = (xs) => xs.length - named(xs).length;
+  if (res.added.length) console.log('  added:', named(res.added).slice(0, 20).join(', ') + (named(res.added).length > 20 ? ' …' : '') + (hidden(res.added) ? ' (+' + hidden(res.added) + ' private, not named)' : ''));
+  if (res.pruned.length) console.log('  pruned (forks / gone):', res.pruned.length + ' repos');
   if (!res.sawPrivate && res.protectedPrivate.length)  // under-scoped token — the shield engaged
     console.log(`  ⚠ this token can't see private repos: ${res.protectedPrivate.length} private repo(s) SHIELDED from prune (kept, not refreshed). Add the ESTATE_PAT secret for full private coverage.`);
   console.log('the nest (placement + edges) re-derives from this in the browser — nothing to rebuild.');
