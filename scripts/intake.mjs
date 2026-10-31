@@ -25,14 +25,14 @@ function load() { try { return JSON.parse(readFileSync(ESTATE, 'utf8')); } catch
 // by WITHHOLD (one per line, e.g. today's private list) count as private too.
 const WITHHOLD = (() => { try { return new Set(process.env.WITHHOLD ? readFileSync(process.env.WITHHOLD, 'utf8').split(/\r?\n/).map((s) => s.trim()).filter(Boolean) : []); } catch { return new Set(); } })();
 const isPrivate = (n) => n.private === true || WITHHOLD.has(n.name);
-function save(arc) {
+function save(arc, prior = arc.private) {        // prior: the count the loaded archive carried (the kernel rebuilds the object)
   const seen = arc.nodes.filter(isPrivate).length;
   arc.nodes = arc.nodes.filter((n) => !isPrivate(n));
   arc.generated = today;
   arc.total = arc.nodes.length;
   arc.withDesc = arc.nodes.filter((n) => n.desc).length;
   arc.spiral = arc.nodes.filter((n) => n.live).length;
-  arc.private = seen > 0 ? seen : Number.isInteger(arc.private) ? arc.private : 0;
+  arc.private = seen > 0 ? seen : Number.isInteger(prior) && prior > 0 ? prior : 0;
   const cut = Date.parse(today) - 11 * 864e5;                 // ~11-day frontier window
   arc.frontier = arc.nodes.filter((n) => Date.parse(n.pushed || '2000-01-01') >= cut).length;
   writeFileSync(ESTATE, JSON.stringify(arc));
@@ -71,7 +71,7 @@ if (cmd === 'sync') {
     process.exit(0);   // stay green — the scheduled Action just tries again next time
   }
   const res = syncArchive(arc, current);               // MIRROR to the current fork-free estate (prunes what left)
-  save(res.archive);
+  save(res.archive, arc.private);
   const priv = res.archive.nodes.filter((n) => n.private).length;
   console.log(`sync: ${res.archive.nodes.length} repos (fork-free · ${priv} private) · +${res.added.length} added · ~${res.updated.length} updated · −${res.pruned.length} pruned · ${res.unchanged.length} unchanged`);
   // The Action's log is public too: name only what is in the public archive, and count the rest.
@@ -88,7 +88,7 @@ if (cmd === 'sync') {
   const liveIdx = process.argv.indexOf('--live');
   const repo = { name, desc, live: liveIdx !== -1, url: liveIdx !== -1 ? process.argv[liveIdx + 1] : null, pushed: today };
   const res = intakeOne(arc, repo);
-  save(res.archive);
+  save(res.archive, arc.private);
   console.log(`${res.action}: ${name} — placed into the nest (${res.archive.nodes.length} repos total).`);
 } else {
   console.error('the intake hook:\n  node intake.mjs sync                 re-sync the nest with the current estate\n  node intake.mjs add <name> "<desc>"  intake one build (the hand feeding the body)');
